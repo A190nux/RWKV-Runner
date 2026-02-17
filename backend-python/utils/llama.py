@@ -136,14 +136,26 @@ def Llama(model_path: str, strategy: str) -> AbstractLlama:
     from llama_cpp import Llama
 
     filename, _ = os.path.splitext(os.path.basename(model_path))
-    n_ctx = 8192
+    
+    # Parse strategy: "cuda fp16 [n_ctx] [n_gpu_layers]"
+    # Example: "cuda fp16 524288 55" = 512K context, 55 GPU layers
+    n_ctx = 0  # 0 = use model's native context length
+    n_gpu = -1 if "cpu" not in strategy else 0
+
     try:
-        n_ctx = int(strategy.split(" ")[1])
+        parts = strategy.split()
+        # Check parts[2] and parts[3] (after "cuda fp16")
+        if len(parts) >= 3 and parts[2].isdigit():
+            n_ctx = int(parts[2])  # Third param = context length
+        if len(parts) >= 4 and parts[3].isdigit():
+            n_gpu = int(parts[3])  # Fourth param = GPU layers
     except:
         pass
 
     model = Llama(
-        model_path, n_gpu_layers=-1 if "cpu" not in strategy else 0, n_ctx=n_ctx
+        model_path, 
+        n_gpu_layers=n_gpu, 
+        n_ctx=n_ctx
     )
 
     # Only patch generate function if it is an RWKV model
