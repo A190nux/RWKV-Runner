@@ -133,18 +133,18 @@ class TextLlama(AbstractLlama):
 def Llama(model_path: str, strategy: str) -> AbstractLlama:
     model_path = get_model_path(model_path)
 
-    from llama_cpp import Llama
+    from llama_cpp import Llama as LlamaCpp
 
     filename, _ = os.path.splitext(os.path.basename(model_path))
     
     # Parse strategy: "cuda fp16 [n_ctx] [n_gpu_layers]"
-    # Example: "cuda fp16 524288 55" = 512K context, 55 GPU layers
+    # Example: "cuda fp16 1048576 57" = 1M context, 57 GPU layers
     n_ctx = 0  # 0 = use model's native context length
     n_gpu = -1 if "cpu" not in strategy else 0
 
     try:
         parts = strategy.split()
-        # Check parts[2] and parts[3] (after "cuda fp16")
+        # parts[0] = "cuda", parts[1] = "fp16"
         if len(parts) >= 3 and parts[2].isdigit():
             n_ctx = int(parts[2])  # Third param = context length
         if len(parts) >= 4 and parts[3].isdigit():
@@ -152,20 +152,29 @@ def Llama(model_path: str, strategy: str) -> AbstractLlama:
     except:
         pass
 
-    model = Llama(
-        model_path, 
-        n_gpu_layers=n_gpu, 
-        n_ctx=n_ctx
-    )
-
-    # Only patch generate function if it is an RWKV model
-    if "rwkv" in filename.lower():
-        original_generate = model.generate
-        def rwkv_generate(tokens, **kwargs):
-            kwargs['reset'] = False
-            return original_generate(tokens, **kwargs)
-        model.generate = rwkv_generate
+    # Check if this is an RWKV model
+    is_rwkv = "rwkv" in filename.lower()
     
+    if is_rwkv:
+        # RWKV models need reset=False to maintain sequential RNN state
+        class RWKVLlama(LlamaCpp):
+            """Llama wrapper that forces reset=False for RWKV's sequential state"""
+            def generate(self, tokens, reset=False, **kwargs):
+                # Always use reset=False for RWKV to avoid state position mismatches
+                return super().generate(tokens, reset=False, **kwargs)
+        
+        model = RWKVLlama(
+            model_path, 
+            n_gpu_layers=n_gpu, 
+            n_ctx=n_ctx
+        )
+    else:
+        model = LlamaCpp(
+            model_path, 
+            n_gpu_layers=n_gpu, 
+            n_ctx=n_ctx
+        )
+
     llama: AbstractLlama
     llama = TextLlama(model)
     llama.name = filename
