@@ -133,7 +133,7 @@ class TextLlama(AbstractLlama):
 def Llama(model_path: str, strategy: str) -> AbstractLlama:
     model_path = get_model_path(model_path)
 
-    from llama_cpp import Llama
+    from llama_cpp import Llama as LlamaCpp
 
     filename, _ = os.path.splitext(os.path.basename(model_path))
     n_ctx = 8192
@@ -142,18 +142,29 @@ def Llama(model_path: str, strategy: str) -> AbstractLlama:
     except:
         pass
 
-    model = Llama(
-        model_path, n_gpu_layers=-1 if "cpu" not in strategy else 0, n_ctx=n_ctx
-    )
-
-    # Only patch generate function if it is an RWKV model
-    if "rwkv" in filename.lower():
-        original_generate = model.generate
-        def rwkv_generate(tokens, **kwargs):
-            kwargs['reset'] = False
-            return original_generate(tokens, **kwargs)
-        model.generate = rwkv_generate
+    # Check if this is an RWKV model
+    is_rwkv = "rwkv" in filename.lower()
     
+    if is_rwkv:
+        # RWKV models need reset=False to maintain sequential RNN state
+        class RWKVLlama(LlamaCpp):
+            """Llama wrapper that forces reset=False for RWKV's sequential state"""
+            def generate(self, tokens, reset=False, **kwargs):
+                # Always use reset=False for RWKV to avoid state position mismatches
+                return super().generate(tokens, reset=False, **kwargs)
+        
+        model = RWKVLlama(
+            model_path, 
+            n_gpu_layers=-1 if "cpu" not in strategy else 0, 
+            n_ctx=n_ctx
+        )
+    else:
+        model = LlamaCpp(
+            model_path, 
+            n_gpu_layers=-1 if "cpu" not in strategy else 0, 
+            n_ctx=n_ctx
+        )
+
     llama: AbstractLlama
     llama = TextLlama(model)
     llama.name = filename
