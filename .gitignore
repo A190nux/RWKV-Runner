@@ -37,3 +37,4 @@ finetune/json2binidx_tool/data
 /wsl.state
 /components
 error.txt
+*.gguf
