@@ -36,10 +36,6 @@ class AbstractLlama(ABC):
         completion_token_len = 0
         response = ""
 
-        if is_rwkv_model(self):
-            # state cache for rwkv in llama.cpp has bug, so we need to reset it
-            self.model.reset()
-            # self.model._ctx.kv_cache_clear()
 
         from routes.completion import ChatCompletionBody
 
@@ -125,6 +121,13 @@ class TextLlama(AbstractLlama):
 
     def __preload(self):
         pass
+    
+    def clear_rwkv_state(self):
+        """Properly clear RWKV recurrent state"""
+        from llama_cpp import llama_get_memory, llama_memory_clear
+        memory = llama_get_memory(self.model._ctx.ctx)
+        llama_memory_clear(memory, True)
+        self.model.n_tokens = 0
 
 
 def Llama(model_path: str, strategy: str) -> AbstractLlama:
@@ -142,6 +145,13 @@ def Llama(model_path: str, strategy: str) -> AbstractLlama:
     model = Llama(
         model_path, n_gpu_layers=-1 if "cpu" not in strategy else 0, n_ctx=n_ctx
     )
+
+    original_generate = model.generate
+    def rwkv_generate(tokens, **kwargs):
+        kwargs['reset'] = False
+        return original_generate(tokens, **kwargs)
+    model.generate = rwkv_generate
+    
     llama: AbstractLlama
     llama = TextLlama(model)
     llama.name = filename

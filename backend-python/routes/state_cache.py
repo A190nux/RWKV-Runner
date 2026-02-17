@@ -166,6 +166,12 @@ def reset_state():
     if global_var.get(global_var.Deploy_Mode) is True:
         raise HTTPException(status.HTTP_403_FORBIDDEN)
 
+    model = global_var.get(global_var.Model)
+    if model is not None:
+        from utils.llama import AbstractLlama, is_rwkv_model
+        if isinstance(model, AbstractLlama) and is_rwkv_model(model):
+            model.clear_rwkv_state()
+
     if trie is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "trie not loaded")
 
