@@ -146,11 +146,13 @@ def Llama(model_path: str, strategy: str) -> AbstractLlama:
         model_path, n_gpu_layers=-1 if "cpu" not in strategy else 0, n_ctx=n_ctx
     )
 
-    original_generate = model.generate
-    def rwkv_generate(tokens, **kwargs):
-        kwargs['reset'] = False
-        return original_generate(tokens, **kwargs)
-    model.generate = rwkv_generate
+    # Only patch generate function if it is an RWKV model
+    if "rwkv" in filename.lower():
+        original_generate = model.generate
+        def rwkv_generate(tokens, **kwargs):
+            kwargs['reset'] = False
+            return original_generate(tokens, **kwargs)
+        model.generate = rwkv_generate
     
     llama: AbstractLlama
     llama = TextLlama(model)
