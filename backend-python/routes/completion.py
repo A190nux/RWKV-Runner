@@ -44,8 +44,9 @@ default_stop = [
     "\n\nBot",
     "\n\nAlice",
     "\n\nObservation",
-    "User"
-    "\n\n"
+    "User",
+    "\n\n",
+    "User:"
 ]
 
 
