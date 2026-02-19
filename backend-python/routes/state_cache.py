@@ -314,8 +314,8 @@ def save_state():
 
     return "not implemented"
 
-@router.get("/get-state", tags=["State Cache"])
-def get_state():
+@router.get("/gguf-get-state", tags=["State Cache"])
+def gguf_get_state():
     if global_var.get(global_var.Deploy_Mode) is True:
         raise HTTPException(status.HTTP_403_FORBIDDEN)
 
@@ -329,7 +329,7 @@ def get_state():
         if model_wrapper.stateless:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "model is stateless, no state to get")
 
-        state_bytes, state_size, tokens = model_wrapper.get_raw_state()
+        state_bytes, state_size, tokens = model_wrapper.get_rwkv_state()
         
         return {
             "state": base64.b64encode(state_bytes).decode('utf-8'),
@@ -339,8 +339,8 @@ def get_state():
     else:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "not an RWKV model")
 
-@router.post("/set-state", tags=["State Cache"])
-def set_state(body: SetStateBody):
+@router.post("/gguf-set-state", tags=["State Cache"])
+def gguf_set_state(body: SetStateBody):
     if global_var.get(global_var.Deploy_Mode) is True:
         raise HTTPException(status.HTTP_403_FORBIDDEN)
 
@@ -359,7 +359,7 @@ def set_state(body: SetStateBody):
             state_bytes = base64.b64decode(body.state)
             
             # Use the wrapper method to inject the state
-            model_wrapper.set_raw_state(state_bytes, body.tokens)
+            model_wrapper.set_rwkv_state(state_bytes, body.tokens)
             
             return {"success": True, "size_bytes": len(state_bytes)}
         except Exception as e:

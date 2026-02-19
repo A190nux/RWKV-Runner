@@ -113,10 +113,10 @@ class AbstractLlama(ABC):
         # 2. Ensure both the wrapper and the library object are zeroed
         self.model.n_tokens = 0
 
-    def get_raw_state(self) -> Tuple[bytes, int, int]:
-        """Extracts the state, size, and token count using llama_cpp C API."""
+    def get_rwkv_state(self) -> Tuple[bytes, int, int]:
+        """Extracts the RWKV state, size, and token count using llama_cpp C API."""
         if not is_rwkv_model(self):
-            raise ValueError("get_raw_state is only applicable for RWKV models.")
+            raise ValueError("get_rwkv_state is only applicable for RWKV models.")
 
         if self.stateless:
             raise ValueError("Model is configured as stateless; state extraction is not applicable.")
@@ -132,10 +132,10 @@ class AbstractLlama(ABC):
         
         return bytes(state_data), state_size, self.model.n_tokens
 
-    def set_raw_state(self, state_bytes: bytes, tokens: int):
-        """Injects the state and updates the token count."""
+    def set_rwkv_state(self, state_bytes: bytes, tokens: int):
+        """Injects the RWKV state state and updates the token count."""
         if not is_rwkv_model(self):
-            raise ValueError("set_raw_state is only applicable for RWKV models.")
+            raise ValueError("set_rwkv_state is only applicable for RWKV models.")
 
         if self.stateless:
             raise ValueError("Model is configured as stateless; state injection is not applicable.")
